@@ -32,17 +32,25 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	int sceneHeight = 100;
 
 	// This is your shadow map
-	shadowMap = new ShadowMap(renderer->getDevice(), shadowmapWidth, shadowmapHeight);
+	shadowMaps[0] = new ShadowMap(renderer->getDevice(), shadowmapWidth, shadowmapHeight);
 
-	// Configure directional light
-	light = new Light();
-	light->setAmbientColour(0.3f, 0.3f, 0.3f, 1.0f);
-	light->setDiffuseColour(1.0f, 1.0f, 1.0f, 1.0f);
-	lightDirection[0] = 0.0f; lightDirection[1] = -0.7; lightDirection[2] = 0.7f; // (0.0f, -0.7f, 0.7f)
-	light->setDirection(lightDirection[0], lightDirection[1], lightDirection[2]);
-	light->setPosition(0.f, 0.f, -10.f);
-	light->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 100.f);
+	// Configure first directional light (blue)
+	lights[0] = new Light();
+	lights[0]->setAmbientColour(0.3f, 0.3f, 0.3f, 1.0f);
+	lights[0]->setDiffuseColour(0.0f, 0.0f, 1.0f, 1.0f);
+	lightDirection[0][0] = -3.5f; lightDirection[0][1] = -3.5f; lightDirection[0][2] = 3.5f; // (-3.5f, -3.5f, 3.5f)
+	lights[0]->setDirection(lightDirection[0][0], lightDirection[0][1], lightDirection[0][2]);
+	lights[0]->setPosition(0.f, 10.75f, 0.f); // irrelevant?? directional lights don't have positions.
+	lights[0]->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 100.f);
 
+	// Configure second directional light (red)
+	lights[1] = new Light();
+	lights[1]->setAmbientColour(0.3f, 0.3f, 0.3f, 1.0f);
+	lights[1]->setDiffuseColour(1.0f, 0.0f, 0.0f, 1.0f);
+	lightDirection[1][0] = 3.5f; lightDirection[1][1] = -3.5f; lightDirection[1][2] = 3.5f; // (3.5f, -3.5f, 3.5f)
+	lights[1]->setDirection(lightDirection[1][0], lightDirection[1][1], lightDirection[1][2]);
+	lights[1]->setPosition(0.f, 10.0f, 0.f); // irrelevant?? directional lights don't have positions.
+	lights[1]->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 100.f);
 }
 
 App1::~App1()
@@ -72,8 +80,10 @@ bool App1::frame()
 		return false;
 	}
 
-	// Update light
-	light->setDirection(lightDirection[0], lightDirection[1], lightDirection[2]);
+	// Update lights
+	for (int i = 0; i < TOTAL_LIGHTS; i++) {
+		lights[i]->setDirection(lightDirection[i][0], lightDirection[i][1], lightDirection[i][2]);
+	}
 
 	return true;
 }
@@ -92,12 +102,12 @@ bool App1::render()
 void App1::depthPass()
 {
 	// Set the render target to be the render to texture.
-	shadowMap->BindDsvAndSetNullRenderTarget(renderer->getDeviceContext());
+	shadowMaps[0]->BindDsvAndSetNullRenderTarget(renderer->getDeviceContext());
 
 	// get the world, view, and projection matrices from the camera and d3d objects.
-	light->generateViewMatrix();
-	XMMATRIX lightViewMatrix = light->getViewMatrix();
-	XMMATRIX lightProjectionMatrix = light->getOrthoMatrix();
+	lights[0]->generateViewMatrix();
+	XMMATRIX lightViewMatrix = lights[0]->getViewMatrix();
+	XMMATRIX lightProjectionMatrix = lights[0]->getOrthoMatrix();
 	XMMATRIX worldMatrix = renderer->getWorldMatrix();
 
 	worldMatrix = XMMatrixTranslation(-50.f, 0.f, -10.f);
@@ -142,7 +152,7 @@ void App1::finalPass()
 	// Render floor
 	mesh->sendData(renderer->getDeviceContext());
 	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, 
-		textureMgr->getTexture(L"brick"), shadowMap->getDepthMapSRV(), light);
+		textureMgr->getTexture(L"brick"), shadowMaps[0]->getDepthMapSRV(), lights[0]);
 	shadowShader->render(renderer->getDeviceContext(), mesh->getIndexCount());
 
 	// Render model
@@ -151,7 +161,8 @@ void App1::finalPass()
 	XMMATRIX scaleMatrix = XMMatrixScaling(0.5f, 0.5f, 0.5f);
 	worldMatrix = XMMatrixMultiply(worldMatrix, scaleMatrix);
 	model->sendData(renderer->getDeviceContext());
-	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"), shadowMap->getDepthMapSRV(), light);
+	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix,
+		textureMgr->getTexture(L"brick"), shadowMaps[0]->getDepthMapSRV(), lights[0]);
 	shadowShader->render(renderer->getDeviceContext(), model->getIndexCount());
 
 	// Render cube mesh
@@ -159,7 +170,7 @@ void App1::finalPass()
 	worldMatrix = XMMatrixTranslation(cubePos[0], cubePos[1], cubePos[2]);
 	cubeMesh->sendData(renderer->getDeviceContext());
 	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix,
-		textureMgr->getTexture(L"brick"), shadowMap->getDepthMapSRV(), light);
+		textureMgr->getTexture(L"brick"), shadowMaps[0]->getDepthMapSRV(), lights[0]);
 	shadowShader->render(renderer->getDeviceContext(), mesh->getIndexCount());
 
 	// Render ortho mesh with light POV
@@ -169,7 +180,7 @@ void App1::finalPass()
 	XMMATRIX orthoMatrix = renderer->getOrthoMatrix();
 	XMMATRIX orthoViewMatrix = camera->getOrthoViewMatrix();
 	orthoMesh->sendData(renderer->getDeviceContext());
-	textureShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, orthoViewMatrix, orthoMatrix, shadowMap->getDepthMapSRV());
+	textureShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, orthoViewMatrix, orthoMatrix, shadowMaps[0]->getDepthMapSRV());
 	textureShader->render(renderer->getDeviceContext(), orthoMesh->getIndexCount());
 	renderer->setZBuffer(true);
 
@@ -177,8 +188,6 @@ void App1::finalPass()
 	gui();
 	renderer->endScene();
 }
-
-
 
 void App1::gui()
 {
@@ -191,10 +200,10 @@ void App1::gui()
 	ImGui::Text("FPS: %.f", timer->getFPS());
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
 	ImGui::SliderFloat3("Cube Position", cubePos, -10, 10, "% .1f");
-	ImGui::SliderFloat3("Light direction", lightDirection, -5, 5, "%.2f");
+	ImGui::SliderFloat3("Blue light direction", lightDirection[0], -5, 5, "%.2f");
+	ImGui::SliderFloat3("Red light direction", lightDirection[1], -5, 5, "%.2f");
 
 	// Render UI
 	ImGui::Render();
 	ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
 }
-

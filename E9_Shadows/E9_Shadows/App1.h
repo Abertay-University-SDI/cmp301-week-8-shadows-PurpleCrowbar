@@ -29,16 +29,17 @@ private:
 	PlaneMesh* mesh;
 	OrthoMesh* orthoMesh;
 
-	Light* light;
+	static const int TOTAL_LIGHTS = 2;
+	Light* lights[TOTAL_LIGHTS];
 	AModel* model;
 	CubeMesh* cubeMesh;
 	ShadowShader* shadowShader;
 	DepthShader* depthShader;
 
-	ShadowMap* shadowMap;
+	ShadowMap* shadowMaps[TOTAL_LIGHTS];
 
 	float cubePos[3];
-	float lightDirection[3];
+	float lightDirection[TOTAL_LIGHTS][3];
 };
 
 #endif
