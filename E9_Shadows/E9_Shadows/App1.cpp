@@ -15,6 +15,9 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	// Create Mesh object and shader object
 	mesh = new PlaneMesh(renderer->getDevice(), renderer->getDeviceContext());
 	model = new AModel(renderer->getDevice(), "res/teapot.obj");
+	cubeMesh = new CubeMesh(renderer->getDevice(), renderer->getDeviceContext());
+	cubePos[0] = -10.f; cubePos[1] = 5.f; cubePos[2] = 0.f; // (-10.f, 5.f, 0.f);
+	orthoMesh = new OrthoMesh(renderer->getDevice(), renderer->getDeviceContext(), screenWidth / 2, screenHeight / 2, -screenWidth / 1.5f, -screenHeight / 1.5f);
 	textureMgr->loadTexture(L"brick", L"res/brick1.dds");
 
 	// initial shaders
@@ -23,8 +26,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	shadowShader = new ShadowShader(renderer->getDevice(), hwnd);
 
 	// Variables for defining shadow map
-	int shadowmapWidth = 1024;
-	int shadowmapHeight = 1024;
+	int shadowmapWidth = 5096;
+	int shadowmapHeight = 5096;
 	int sceneWidth = 100;
 	int sceneHeight = 100;
 
@@ -35,7 +38,8 @@ void App1::init(HINSTANCE hinstance, HWND hwnd, int screenWidth, int screenHeigh
 	light = new Light();
 	light->setAmbientColour(0.3f, 0.3f, 0.3f, 1.0f);
 	light->setDiffuseColour(1.0f, 1.0f, 1.0f, 1.0f);
-	light->setDirection(0.0f, -0.7f, 0.7f);
+	lightDirection[0] = 0.0f; lightDirection[1] = -0.7; lightDirection[2] = 0.7f; // (0.0f, -0.7f, 0.7f)
+	light->setDirection(lightDirection[0], lightDirection[1], lightDirection[2]);
 	light->setPosition(0.f, 0.f, -10.f);
 	light->generateOrthoMatrix((float)sceneWidth, (float)sceneHeight, 0.1f, 100.f);
 
@@ -67,6 +71,9 @@ bool App1::frame()
 	{
 		return false;
 	}
+
+	// Update light
+	light->setDirection(lightDirection[0], lightDirection[1], lightDirection[2]);
 
 	return true;
 }
@@ -108,6 +115,13 @@ void App1::depthPass()
 	depthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, lightViewMatrix, lightProjectionMatrix);
 	depthShader->render(renderer->getDeviceContext(), model->getIndexCount());
 
+	// Render cube mesh
+	worldMatrix = renderer->getWorldMatrix();
+	worldMatrix = XMMatrixTranslation(cubePos[0], cubePos[1], cubePos[2]); // -12.f, 5.f, 0.f
+	cubeMesh->sendData(renderer->getDeviceContext());
+	depthShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, lightViewMatrix, lightProjectionMatrix);
+	depthShader->render(renderer->getDeviceContext(), cubeMesh->getIndexCount());
+
 	// Set back buffer as render target and reset view port.
 	renderer->setBackBufferRenderTarget();
 	renderer->resetViewport();
@@ -140,6 +154,26 @@ void App1::finalPass()
 	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix, textureMgr->getTexture(L"brick"), shadowMap->getDepthMapSRV(), light);
 	shadowShader->render(renderer->getDeviceContext(), model->getIndexCount());
 
+	// Render cube mesh
+	worldMatrix = renderer->getWorldMatrix();
+	worldMatrix = XMMatrixTranslation(cubePos[0], cubePos[1], cubePos[2]);
+	cubeMesh->sendData(renderer->getDeviceContext());
+	shadowShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, viewMatrix, projectionMatrix,
+		textureMgr->getTexture(L"brick"), shadowMap->getDepthMapSRV(), light);
+	shadowShader->render(renderer->getDeviceContext(), mesh->getIndexCount());
+
+	// Render ortho mesh with light POV
+	renderer->setZBuffer(false);
+	worldMatrix = XMMatrixTranslation(1.f, 1.f, 0.f); // final val irrelevant as zbuffer disabled
+	worldMatrix = XMMatrixMultiply(worldMatrix, scaleMatrix);
+	XMMATRIX orthoMatrix = renderer->getOrthoMatrix();
+	XMMATRIX orthoViewMatrix = camera->getOrthoViewMatrix();
+	orthoMesh->sendData(renderer->getDeviceContext());
+	textureShader->setShaderParameters(renderer->getDeviceContext(), worldMatrix, orthoViewMatrix, orthoMatrix, shadowMap->getDepthMapSRV());
+	textureShader->render(renderer->getDeviceContext(), orthoMesh->getIndexCount());
+	renderer->setZBuffer(true);
+
+	// Render GUI and present rendered scene to screen
 	gui();
 	renderer->endScene();
 }
@@ -154,8 +188,10 @@ void App1::gui()
 	renderer->getDeviceContext()->DSSetShader(NULL, NULL, 0);
 
 	// Build UI
-	ImGui::Text("FPS: %.2f", timer->getFPS());
+	ImGui::Text("FPS: %.f", timer->getFPS());
 	ImGui::Checkbox("Wireframe mode", &wireframeToggle);
+	ImGui::SliderFloat3("Cube Position", cubePos, -10, 10, "% .1f");
+	ImGui::SliderFloat3("Light direction", lightDirection, -5, 5, "%.2f");
 
 	// Render UI
 	ImGui::Render();
