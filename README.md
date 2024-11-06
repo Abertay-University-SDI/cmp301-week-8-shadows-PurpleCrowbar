@@ -1,8 +1,6 @@
 # CMP301_Shadows
 Starter project for CMP301. Shadow mapping.
 
-Name:
+Name: Logan Reid
 
-Number:
-
-Outline of project:
+Number: 2100523
