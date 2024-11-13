@@ -29,7 +29,7 @@ private:
 	PlaneMesh* mesh;
 	OrthoMesh* orthoMesh;
 
-	static const int TOTAL_LIGHTS = 2;
+	unsigned static constexpr int TOTAL_LIGHTS = 2;
 	Light* lights[TOTAL_LIGHTS];
 	AModel* model;
 	CubeMesh* cubeMesh;

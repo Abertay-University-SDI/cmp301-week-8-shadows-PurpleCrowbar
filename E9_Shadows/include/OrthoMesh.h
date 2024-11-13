@@ -23,11 +23,11 @@ public:
 	/** \brief Initialises the mesh and vertex list, requires size and position values
 	* Provide filename to OBJ object, will be loaded and store like other mesh objects.
 	* @param device is the renderer device
-	* @param device context is the renderer device context
+	* @param deviceContext is the renderer device context
 	* @param width is the required width in pixels
 	* @param height is the required height in pixels
-	* @param x position is the x-axis offset, default is zero for centre screen
-	* @param y position is the y-axis offset, default is zero for centre screen
+	* @param xPosition is the x-axis offset, default is zero for centre screen
+	* @param yPosition is the y-axis offset, default is zero for centre screen
 	*/
 	OrthoMesh(ID3D11Device* device, ID3D11DeviceContext* deviceContext, int width, int height, int xPosition = 0, int yPosition = 0);
 	~OrthoMesh();

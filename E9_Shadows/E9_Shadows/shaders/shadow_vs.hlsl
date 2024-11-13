@@ -4,8 +4,8 @@ cbuffer MatrixBuffer : register(b0)
 	matrix worldMatrix;
 	matrix viewMatrix;
 	matrix projectionMatrix;
-	matrix lightViewMatrix;
-	matrix lightProjectionMatrix;
+	matrix lightViewMatrix[2];
+	matrix lightProjectionMatrix[2];
 };
 
 struct InputType
@@ -20,7 +20,7 @@ struct OutputType
     float4 position : SV_POSITION;
     float2 tex : TEXCOORD0;
 	float3 normal : NORMAL;
-    float4 lightViewPos : TEXCOORD1;
+    float4 lightViewPos[2] : TEXCOORD1;
 };
 
 
@@ -28,19 +28,24 @@ OutputType main(InputType input)
 {
     OutputType output;
 
-	// Calculate the position of the vertex against the world, view, and projection matrices.
-    output.position = mul(input.position, worldMatrix);
-    output.position = mul(output.position, viewMatrix);
+    // Transform vertex to world, view, and projection space
+    float4 worldPos = mul(input.position, worldMatrix);
+    output.position = mul(worldPos, viewMatrix);
     output.position = mul(output.position, projectionMatrix);
-    
-	// Calculate the position of the vertice as viewed by the light source.
-    output.lightViewPos = mul(input.position, worldMatrix);
-    output.lightViewPos = mul(output.lightViewPos, lightViewMatrix);
-    output.lightViewPos = mul(output.lightViewPos, lightProjectionMatrix);
 
+    // Calculate light view positions for both lights
+    for (int i = 0; i < 2; i++)
+    {
+        float4 lightViewPosition = mul(worldPos, lightViewMatrix[i]);
+        output.lightViewPos[i] = mul(lightViewPosition, lightProjectionMatrix[i]);
+    }
+
+    // Pass through texture coordinates
     output.tex = input.tex;
-    output.normal = mul(input.normal, (float3x3)worldMatrix);
-    output.normal = normalize(output.normal);
 
-	return output;
+    // Transform and normalie the normal vector
+    float3 worldNormal = mul(input.normal, (float3x3) worldMatrix);
+    output.normal = normalize(worldNormal);
+
+    return output;
 }
